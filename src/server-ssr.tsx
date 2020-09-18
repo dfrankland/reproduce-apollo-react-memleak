@@ -1,10 +1,11 @@
-import React from "react";
+import * as React from "react";
 
 import fs from "fs";
 import heapdump from "heapdump";
 
 import { renderToString, renderToStaticMarkup } from "react-dom/server";
-import { Query, ApolloProvider, getDataFromTree } from "react-apollo";
+import { ApolloProvider, useQuery } from "@apollo/react-hooks";
+import { getDataFromTree } from "@apollo/react-ssr";
 import gql from "graphql-tag";
 import { ApolloClient } from "apollo-client";
 import fetch from "node-fetch";
@@ -71,18 +72,17 @@ query {
 const query = query_light;
 // const query = query_heavy;
 
-const MyQuery = () => (
-  <Query query={query}>
-    {({ loading, data }: any) => (
-      <div>
-        loading: {!!loading}
-        <pre>{JSON.stringify(data, null, 2)}</pre>
-      </div>
-    )}
-  </Query>
-);
+const MyQuery: React.FunctionComponent = () => {
+  const { loading, data } = useQuery(query);
+  return (
+    <div>
+      loading: {!!loading}
+      <pre>{JSON.stringify(data, null, 2)}</pre>
+    </div>
+  );
+};
 
-const Html = ({ content, state }: { content: string, state: any }) => (
+const Html: React.FunctionComponent<{ content: string, state: any }> = ({ content, state }) => (
   <html>
     <body>
       <div id="root" dangerouslySetInnerHTML={{ __html: content }} />
@@ -93,39 +93,41 @@ const Html = ({ content, state }: { content: string, state: any }) => (
   </html>
 );
 
-app.use("/", async (req, res) => {
+app.get("/*", async (req, res) => {
+  try {
+    global.gc();
 
-  global.gc();
+    const client = new ApolloClient({
+      ssrMode: true,
+      link: createHttpLink({
+        uri: "http://localhost:4000/graphql",
+        fetch: fetch as any,
+      }),
+      cache: new InMemoryCache({ resultCaching: false }),
+    });
 
-  const client = new ApolloClient({
-    ssrMode: true,
-    link: createHttpLink({
-      uri: "http://localhost:4000/graphql",
-      fetch: fetch as any,
-    }),
-    cache: new InMemoryCache({ resultCaching: false }),
-  });
+    const App = (
+      <ApolloProvider client={client}>
+        <MyQuery />
+      </ApolloProvider>
+    );
 
-  const App = (
-    <ApolloProvider client={client}>
-      <MyQuery />
-    </ApolloProvider>
-  );
+    await getDataFromTree(App);
 
-  await getDataFromTree(App);
+    const content = renderToString(App);
+    const initialState = client.extract();
 
-  const content = renderToString(App);
-  const initialState = client.extract();
+    res.status(200);
+    res.end(`<!doctype html>\n${renderToStaticMarkup(<Html content={content} state={initialState} />)}`);
 
-  res.status(200);
-  res.end(`<!doctype html>\n${renderToStaticMarkup(<Html content={content} state={initialState} />)}`);
+    const heapSize = process.memoryUsage().heapUsed;
+    console.log(heapSize);
+    // heapList.push(heapSize);
 
-  const heapSize = process.memoryUsage().heapUsed;
-  console.log(heapSize);
-  heapList.push(heapSize);
-
-  global.gc();
-  
+    global.gc();
+  } catch (err) {
+    console.error(err);
+  }
 });
 
 app.listen(4010 , () => console.log(
