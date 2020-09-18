@@ -5,8 +5,8 @@
   "scripts": {
     "start-gql-dev": "ts-node-dev src/server-gql.ts",
     "start-ssr-dev": "ts-node-dev src/server-ssr.tsx",
-    "start-gql": "node built/server-gql.js",
-    "start-ssr": "node --expose-gc built/server-ssr.js",
+    "dev": "ts-node-dev src/server-ssr.tsx",
+    "start": "node --expose-gc built/server-ssr.js",
     "build": "tsc",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
