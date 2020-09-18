@@ -3,8 +3,6 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "start-gql-dev": "ts-node-dev src/server-gql.ts",
-    "start-ssr-dev": "ts-node-dev src/server-ssr.tsx",
     "dev": "ts-node-dev src/server-ssr.tsx",
     "start": "node --expose-gc built/server-ssr.js",
     "build": "tsc",
